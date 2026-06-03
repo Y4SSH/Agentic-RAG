@@ -209,33 +209,32 @@ def retrieve(state: dict[str, Any]) -> dict[str, Any]:
         if not question:
             return {"documents": [], "steps_taken": steps}
 
-        # similarity_search_with_score returns (Document, float) where the score
-        # is raw L2 distance: lower = more similar. Chroma's relevance normalisation
-        # is unreliable with langchain_community, so we gate on distance directly.
-        # For all-MiniLM-L6-v2: distance < 1.3 is a safe relevance cutoff.
-        # k=1 enforces a single-chunk context window to prevent intra-document blending.
+        # similarity_search_with_relevance_scores returns (Document, float) where
+        # the score is a normalized cosine similarity on a [0, 1] scale: higher = more
+        # similar. k=1 enforces a single-chunk context window to prevent intra-document
+        # blending. Chunks scoring below the threshold (0.4) are discarded.
         scored: list[tuple[Document, float]] = (
-            _vectorstore().similarity_search_with_score(
+            _vectorstore().similarity_search_with_relevance_scores(
                 question, k=1
             )
         )
 
         documents: list[Document] = []
         discarded: int = 0
-        for doc, distance in scored:
-            if distance < settings.retrieval_score_threshold:
+        for doc, score in scored:
+            if score >= settings.retrieval_score_threshold:
                 documents.append(doc)
             else:
                 discarded += 1
                 logger.debug(
-                    "Chunk discarded (L2=%.4f >= threshold=%.2f): %s",
-                    distance,
+                    "Chunk discarded (score=%.4f < threshold=%.2f): %s",
+                    score,
                     settings.retrieval_score_threshold,
                     doc.metadata.get("source", "?"),
                 )
 
         steps[-1] = (
-            f"Retrieved {len(documents)} chunk(s) [max 1, threshold L2 < "
+            f"Retrieved {len(documents)} chunk(s) [max 1, threshold score > "
             f"{settings.retrieval_score_threshold}] ({discarded} discarded) "
             f"for query: {question}"
         )

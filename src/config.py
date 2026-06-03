@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     chunk_size: int = 500
     chunk_overlap: int = 50
     top_k: int = 1
-    retrieval_score_threshold: float = 1.3
+    retrieval_score_threshold: float = 0.4
     search_loop_limit: int = 3
 
     embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
